@@ -1,6 +1,11 @@
-# The Scaffold Effect: How Prompt Framing Drives Apparent Multimodal Gains in Clinical VLM Evaluation
+# Prompts Without Evidence: How Neuroimaging Mentions Shift Clinical Vision-Language Model Predictions
 
-Code for our paper. We evaluate Vision-Language Models (VLMs) on two clinical classification tasks using multimodal patient data (clinical text + structural MRI).
+Code for our paper (Accepted to EMNL 2026 Main Conference). 
+
+We evaluate Vision-Language Models (VLMs) on two clinical classification tasks using multimodal patient data (clinical text + structural MRI).
+
+## Citation
+Incoming
 
 ## Tasks
 
@@ -13,10 +18,10 @@ Code for our paper. We evaluate Vision-Language Models (VLMs) on two clinical cl
 |------|-------------|
 | `inference.py` | Main inference script for MDD task; supports Gemma-3, LLaVA, Qwen2-VL, Qwen2.5-VL, Qwen3-VL, GLM-4V, InternVL |
 | `inference_oasis.py` | Inference script for OASIS cognitive decline task |
-| `inference_explain_2.py` | Inference with token-level probability extraction for contrastive analysis |
+| `inference_joint.py` | Joint-probability inference: extracts per-token log-probs and computes renormalized P(MDD) across conditions C1/C2/C4 (Appendix `app:confidence`) |
 | `train_dpo.py` | MPO/DPO fine-tuning of Qwen2.5-VL-3B-Instruct on a preference dataset |
-| `scaffold_search.py` | Mechanistic interpretability: extracts scaffold direction from layer-33 hidden states and searches for equivalent trigger phrases |
-| `summarize_contrastive_2.py` | Aggregates and plots three-way contrastive results (tabular / +preamble / +full MRI) |
+| `preamble_search.py` | Mechanistic interpretability: extracts preamble direction from layer-33 hidden states and searches for equivalent trigger phrases |
+| `summarize_joint.py` | Aggregates `inference_joint.py` outputs into per-condition metrics (mean P(MDD), ECE, Brier and figures |
 | `f1_eval.py` | Computes F1 / precision / recall / accuracy for MDD results |
 | `f1_eval_oasis.py` | Same evaluation for OASIS results |
 
@@ -67,13 +72,28 @@ python f1_eval_oasis.py \
     --cd_file results_cd.jsonl
 ```
 
-### Contrastive summary & figures
+### Joint-probability inference (confidence & calibration)
+
+Run one invocation per (model, condition, true-label) cell. Conditions are
+`c1` (text only), `c2` (text + MRI preamble, no image), `c4` (text + parcel + MRI image):
 
 ```bash
-python summarize_contrastive_2.py \
-    --preamble_files results_*_tabular_mri_preamble_*_contrastive.jsonl \
-    --full_files     results_*_tabular_parcel_mri_*_contrastive.jsonl \
-    --output_dir     ./summary
+python inference_joint.py \
+    --txt_base_path /path/to/txt_mdd_split \
+    --true_label    mdd \
+    --condition     c2 \
+    --mri_base_path /path/to/mri_data \
+    --model_name    Qwen/Qwen2.5-VL-3B-Instruct \
+    --output_dir    ./results_joint_v3
+```
+
+Aggregate the resulting `.jsonl` files into per-condition tables and figures
+(mean P(MDD), ECE, Brier):
+
+```bash
+python summarize_joint.py \
+    --input_dir  ./results_joint_v3 \
+    --output_dir ./summary_joint
 ```
 
 ### Fine-tuning (MPO/DPO)
@@ -86,15 +106,15 @@ python train_dpo.py \
 ```
 
 
-### Scaffold direction search (mechanistic interpretability)
+### Preamble direction search
 
 ```bash
-python scaffold_search.py \
+python preamble_search.py \
     --txt_mdd_path  /path/to/txt_mdd_split/test \
     --txt_ctrl_path /path/to/txt_control_split/test \
     --model_name    Qwen/Qwen2.5-VL-3B-Instruct \
     --n_patients    15 \
-    --output_dir    ./scaffold_results
+    --output_dir    ./preamble_results
 ```
 
 ## Input Data Format
@@ -113,4 +133,7 @@ All inference scripts produce `.jsonl` files where each line is a JSON object:
 }
 ```
 
-Contrastive mode additionally includes `baseline` and `full` probability fields and a `delta_p_mdd` field.
+`inference_joint.py` outputs additionally include per-token confidence fields:
+`log_p_prefix`, `p_major_at_label`, `p_control_at_label`, `log_p_joint_mdd`,
+`log_p_joint_ctrl`, `p_mdd_norm`, `pred_label`, `cat_idx` (see Appendix
+`app:confidence` of the paper).
