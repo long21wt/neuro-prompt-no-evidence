@@ -1,6 +1,6 @@
 # Prompts Without Evidence: How Neuroimaging Mentions Shift Clinical Vision-Language Model Predictions
 
-Code for our paper (Accepted to EMNL 2026 Main Conference). 
+Code for our paper (Accepted to EMNLP 2026 Main Conference). 
 
 We evaluate Vision-Language Models (VLMs) on two clinical classification tasks using multimodal patient data (clinical text + structural MRI).
 
